@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+// ضع رابط سيرفر الـ Backend الخاص بك على Render هنا بدلاً من الرابط الافتراضي
+const API_URL = import.meta.env.VITE_API_URL || 'https://lamsa-backend.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_URL,
