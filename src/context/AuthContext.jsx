@@ -10,7 +10,10 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem('admin_token');
     if (token) {
-      api.get('/auth/me')
+      // إرفاق التوكين يدوياً في الطلب لضمان نجاح التوثيق
+      api.get('/auth/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
         .then((res) => {
           if (res.data.success) setAdmin(res.data.admin);
           else localStorage.removeItem('admin_token');
