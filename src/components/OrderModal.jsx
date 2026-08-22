@@ -1,164 +1,227 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import Header from '../components/Header';
+import { useState } from 'react';
+import { X, CheckCircle } from 'lucide-react';
 import api from '../utils/api';
-import OrderModal from '../components/OrderModal';
-import { ArrowRight, Check, ShoppingBag } from 'lucide-react';
 
-export default function Products() {
-  const { location } = useParams();
-  const navigate = useNavigate();
-  const decodedLocation = decodeURIComponent(location || '');
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [selectedItems, setSelectedItems] = useState([]); // [{ product, imageUrl }]
-  const [showOrderModal, setShowOrderModal] = useState(false);
+export default function OrderModal({ items, location: initialLocation, onClose, onSuccess }) {
+  const [step, setStep] = useState(1); // 1=Form, 2=Success
 
-  useEffect(() => {
-    if (!decodedLocation) {
-      navigate('/');
-      return;
-    }
-    setLoading(true);
-    api
-      .get(`/products/location/${encodeURIComponent(decodedLocation)}`)
-      .then((res) => {
-        if (res.data.success) setProducts(res.data.products);
-        else setError(res.data.message || 'حصلت مشكلة');
-      })
-      .catch(() => setError('حصلت مشكلة مؤقتة، حاول بعد شوية.'))
-      .finally(() => setLoading(false));
-  }, [decodedLocation, navigate]);
-
-  // تحويل كل منتجات الولاية إلى معرض صور واحد (كل صورة مرتبطة بمنتجها وسعره)
-  const galleryItems = products.flatMap((product) => {
-    const images = product.image_urls?.length > 0 ? product.image_urls : ['/logo.png'];
-    return images.map((imageUrl, idx) => ({
-      key: `${product.id}-${idx}`,
-      product,
-      imageUrl,
-    }));
+  const [form, setForm] = useState({
+    customer_name: '',
+    phone: '',
+    whatsapp: '',
+    address: '',
+    notes: '',
   });
 
-  const isSelected = (item) =>
-    selectedItems.some((s) => s.product.id === item.product.id && s.imageUrl === item.imageUrl);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const toggleSelect = (item) => {
-    if (item.product.quantity <= 0) return;
-    setSelectedItems((prev) =>
-      isSelected(item)
-        ? prev.filter((s) => !(s.product.id === item.product.id && s.imageUrl === item.imageUrl))
-        : [...prev, item]
-    );
+  const selectedImages = items.map((i) => i.imageUrl);
+  const selectedState = items[0]?.product?.location || initialLocation || 'الخرطوم';
+
+  // كل صورة مختارة = قطعة واحدة من سعر منتجها
+  const itemsTotal = items.reduce((sum, i) => sum + Number(i.product.price || 0), 0);
+  // سعر توصيل واحد للطلبية كاملة (بناخد أعلى قيمة بين المنتجات المختارة لأنها بتتوصل مع بعض)
+  const deliveryFee = items.reduce((max, i) => Math.max(max, Number(i.product.delivery_fee || 0)), 0);
+  const grandTotal = itemsTotal + deliveryFee;
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+    setError('');
+  };
+
+  const validateForm = () => {
+    if (!form.customer_name.trim() || form.customer_name.trim().length < 2) {
+      setError('أكتب اسمك صح');
+      return false;
+    }
+    if (!form.phone.trim() || form.phone.trim().length < 8) {
+      setError('أكتب رقم المكالمات صح');
+      return false;
+    }
+    if (!form.whatsapp.trim() || form.whatsapp.trim().length < 8) {
+      setError('أكتب رقم الواتساب صح');
+      return false;
+    }
+    if (!form.address.trim() || form.address.trim().length < 5) {
+      setError('أكتب العنوان بالتفصيل');
+      return false;
+    }
+    return true;
+  };
+
+  const submitOrder = async () => {
+    if (!validateForm()) return;
+
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.post('/orders', {
+        customer_name: form.customer_name,
+        phone: form.phone,
+        whatsapp: form.whatsapp,
+        address: form.address,
+        state: selectedState,
+        location: selectedState,
+        selected_images: selectedImages,
+        color: form.notes || 'غير محدد',
+        size: 'غير محدد',
+        quantity: items.length,
+        delivery_fee: deliveryFee,
+        total_price: grandTotal,
+      });
+
+      if (res.data.success) {
+        setStep(2);
+        onSuccess?.();
+      } else {
+        setError(res.data.message || 'حصلت مشكلة في إرسال الطلب، حاول تاني.');
+      }
+    } catch (err) {
+      setError(
+        err.response?.data?.message || 'حصلت مشكلة في إرسال الطلب، حاول تاني.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-black">
-      <Header />
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 p-0 sm:p-4">
+      <div className="bg-card w-full max-w-lg max-h-[95vh] overflow-y-auto rounded-t-3xl sm:rounded-2xl border border-gold/30 shadow-2xl animate-fade-in">
 
-      {/* شريط "اطلب هسع" ثابت فوق الصفحة، يظهر بس لو في صور متحددة */}
-      {selectedItems.length > 0 && (
-        <div className="sticky top-0 z-30 bg-gold text-black px-4 py-3 flex items-center justify-between shadow-lg">
-          <span className="font-bold text-sm">
-            {selectedItems.length} صورة مختارة
-          </span>
-          <button
-            onClick={() => setShowOrderModal(true)}
-            className="flex items-center gap-1.5 bg-black text-gold font-bold px-4 py-2 rounded-xl text-sm hover:bg-black/80"
-          >
-            <ShoppingBag className="w-4 h-4" />
-            اطلب هسع
-          </button>
+        {/* Header */}
+        <div className="sticky top-0 bg-card border-b border-gold/20 px-4 py-3 flex items-center justify-between z-10">
+          <h2 className="text-lg font-bold text-gold">
+            {step === 1 && 'إكمال الطلب'}
+            {step === 2 && 'تم استلام طلبك'}
+          </h2>
+          {step !== 2 && (
+            <button onClick={onClose} className="text-white/60 hover:text-white p-1">
+              <X className="w-6 h-6" />
+            </button>
+          )}
         </div>
-      )}
 
-      <main className="max-w-4xl mx-auto px-4 py-6 md:py-10">
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-1 text-gold/80 hover:text-gold text-sm mb-4"
-        >
-          <ArrowRight className="w-4 h-4" />
-          تغيير المنطقة
-        </button>
+        <div className="p-4 md:p-6">
 
-        <h1 className="text-xl md:text-3xl font-bold text-center mb-2 animate-fade-in">
-          مرحبتين حبابك الف في {decodedLocation} ❤️
-        </h1>
-        <p className="text-center text-white/50 text-sm mb-8">
-          اضغط على أي صورة عجبتك (تقدر تختار أكتر من صورة)، وبعدين دوس "اطلب هسع" فوق
-        </p>
+          {/* الخطوة 1: مراجعة الصور المختارة + البيانات */}
+          {step === 1 && (
+            <div className="space-y-4">
 
-        {loading && (
-          <div className="text-center py-20 text-gold">جاري تحميل العروض...</div>
-        )}
-
-        {error && (
-          <div className="text-center py-10 text-red-400 bg-red-900/20 rounded-xl p-4">
-            {error}
-          </div>
-        )}
-
-        {!loading && !error && galleryItems.length === 0 && (
-          <div className="text-center py-16 text-white/60">
-            <p className="text-lg mb-2">مافي عروض حالياً في {decodedLocation}</p>
-            <p className="text-sm">جرب منطقة تانية أو ارجع بعد شوية</p>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {galleryItems.map((item) => {
-            const outOfStock = item.product.quantity <= 0;
-            const selected = isSelected(item);
-            return (
-              <div key={item.key} className="flex flex-col">
-                <div
-                  onClick={() => toggleSelect(item)}
-                  className={`relative rounded-2xl overflow-hidden border-2 transition-all aspect-square ${
-                    outOfStock
-                      ? 'opacity-40 cursor-not-allowed border-white/10'
-                      : selected
-                      ? 'border-gold ring-2 ring-gold cursor-pointer'
-                      : 'border-white/10 hover:border-gold/50 cursor-pointer'
-                  }`}
-                >
-                  <img
-                    src={item.imageUrl}
-                    alt={item.product.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    onError={(e) => { e.target.src = '/logo.png'; }}
-                  />
-                  {selected && (
-                    <div className="absolute top-1.5 right-1.5 bg-gold text-black p-1 rounded-full shadow">
-                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+              {/* الصور المختارة */}
+              <div>
+                <p className="text-sm text-white/80 font-medium mb-2">الصور المختارة ({items.length}):</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {items.map((item, idx) => (
+                    <div key={idx} className="rounded-lg overflow-hidden aspect-square border border-gold/30">
+                      <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
                     </div>
-                  )}
-                  {outOfStock && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                      <span className="text-red-400 text-xs font-bold">خلص حالياً</span>
-                    </div>
-                  )}
+                  ))}
                 </div>
-                <p className="text-white/80 text-xs mt-1.5 line-clamp-1">{item.product.name}</p>
-                <p className="text-gold text-xs font-bold">
-                  {Number(item.product.price).toLocaleString()} ج.س
-                </p>
               </div>
-            );
-          })}
-        </div>
-      </main>
 
-      {showOrderModal && (
-        <OrderModal
-          items={selectedItems}
-          location={decodedLocation}
-          onClose={() => setShowOrderModal(false)}
-          onSuccess={() => setSelectedItems([])}
-        />
-      )}
+              {/* ملاحظات (لون/مقاس/تفاصيل إضافية) */}
+              <div>
+                <label className="block text-xs text-white/70 mb-1">ملاحظات (اللون، المقاس، أو أي تفاصيل إضافية)</label>
+                <input
+                  type="text"
+                  name="notes"
+                  value={form.notes}
+                  onChange={handleChange}
+                  placeholder="مثال: مقاس L، لون أسود"
+                  className="w-full bg-black/60 border border-gold/30 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold"
+                />
+              </div>
+
+              {/* بيانات العميل */}
+              <div className="space-y-2">
+                <input
+                  name="customer_name"
+                  value={form.customer_name}
+                  onChange={handleChange}
+                  placeholder="الاسم بالكامل"
+                  className="w-full bg-black/50 border border-gold/30 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                />
+                <input
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  placeholder="رقم الهاتف (المكالمات)"
+                  type="tel"
+                  className="w-full bg-black/50 border border-gold/30 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                />
+                <input
+                  name="whatsapp"
+                  value={form.whatsapp}
+                  onChange={handleChange}
+                  placeholder="رقم الواتساب"
+                  type="tel"
+                  className="w-full bg-black/50 border border-gold/30 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                />
+                <textarea
+                  name="address"
+                  value={form.address}
+                  onChange={handleChange}
+                  placeholder="العنوان السكني بالتفصيل"
+                  rows={2}
+                  className="w-full bg-black/50 border border-gold/30 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold resize-none"
+                />
+              </div>
+
+              {/* المجموع والسعر */}
+              <div className="bg-black/60 p-3 rounded-xl border border-gold/20 text-sm space-y-1">
+                <div className="flex justify-between text-white/70">
+                  <span>الولاية:</span>
+                  <span className="text-gold font-bold">{selectedState}</span>
+                </div>
+                <div className="flex justify-between text-white/70">
+                  <span>سعر القطع ({items.length}):</span>
+                  <span>{itemsTotal.toLocaleString()} ج.س</span>
+                </div>
+                <div className="flex justify-between text-white/70">
+                  <span>رسوم التوصيل:</span>
+                  <span>{deliveryFee.toLocaleString()} ج.س</span>
+                </div>
+                <div className="flex justify-between text-base border-t border-white/10 pt-1 font-bold text-gold">
+                  <span>الإجمالي الكلي:</span>
+                  <span>{grandTotal.toLocaleString()} ج.س</span>
+                </div>
+              </div>
+
+              {error && <p className="text-red-400 text-xs text-center">{error}</p>}
+
+              <button
+                type="button"
+                onClick={submitOrder}
+                disabled={loading || items.length === 0}
+                className="w-full bg-gold text-black font-bold py-3.5 rounded-xl hover:bg-gold-light disabled:opacity-60"
+              >
+                {loading ? 'جاري الإرسال...' : 'تأكيد وإرسال الطلب'}
+              </button>
+            </div>
+          )}
+
+          {/* الخطوة 2: النجاح */}
+          {step === 2 && (
+            <div className="text-center py-6 space-y-4">
+              <CheckCircle className="w-16 h-16 text-green-400 mx-auto animate-bounce" />
+              <h3 className="text-xl font-bold text-white">تم إرسال طلبك بنجاح! ❤️</h3>
+              <p className="text-gold text-lg font-bold">
+                الإجمالي: {grandTotal.toLocaleString()} جنيه سوداني
+              </p>
+              <p className="text-white/70 text-sm">حنتواصل معاك عبر الواتساب أو المكالمات لتأكيد التسليم.</p>
+              <button
+                onClick={onClose}
+                className="mt-4 w-full bg-gold text-black font-bold py-3.5 rounded-xl"
+              >
+                الرجوع للعروض
+              </button>
+            </div>
+          )}
+
+        </div>
+      </div>
     </div>
   );
 }
-
