@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { X, CheckCircle, Minus, Plus, Check } from 'lucide-react';
-import api, { SIZES, LOCATIONS } from '../utils/api';
+import api, { SIZES } from '../utils/api';
 
 export default function OrderModal({ product, location: initialLocation, onClose }) {
-  const [step, setStep] = useState(1); // 1=State, 2=Images, 3=Form, 4=Success
-  
-  // States
-  const [selectedState, setSelectedState] = useState(initialLocation || 'الخرطوم');
+  const [step, setStep] = useState(1); // 1=Images, 2=Form, 3=Success
+
+  // الولاية وسعر التوصيل محددين مسبقاً من الأدمن على مستوى المنتج نفسه
+  const selectedState = product.location || initialLocation || 'الخرطوم';
   const [selectedImages, setSelectedImages] = useState([]);
   const [color, setColor] = useState('');
   const [size, setSize] = useState('L');
@@ -22,9 +22,8 @@ export default function OrderModal({ product, location: initialLocation, onClose
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // 1. حساب أسعار التوصيل بناء على الولاية المحددة
-  const activeLocation = LOCATIONS.find((loc) => loc.name === selectedState) || LOCATIONS[0];
-  const deliveryFee = Number(activeLocation?.deliveryFee || product?.delivery_fee || 0);
+  // 1. سعر التوصيل ثابت على مستوى المنتج، حدده الأدمن مسبقاً
+  const deliveryFee = Number(product?.delivery_fee || 0);
 
   // 2. صور المنتج المتاحة
   const productImages = product.image_urls || (product.image_url ? [product.image_url] : []);
@@ -87,7 +86,7 @@ export default function OrderModal({ product, location: initialLocation, onClose
       });
 
       if (res.data.success) {
-        setStep(4);
+        setStep(3);
       } else {
         setError(res.data.message || 'حصلت مشكلة في إرسال الطلب، حاول تاني.');
       }
@@ -107,12 +106,11 @@ export default function OrderModal({ product, location: initialLocation, onClose
         {/* Header */}
         <div className="sticky top-0 bg-card border-b border-gold/20 px-4 py-3 flex items-center justify-between z-10">
           <h2 className="text-lg font-bold text-gold">
-            {step === 1 && '1. اختر الولاية'}
-            {step === 2 && '2. اختر الصور المطلوبة'}
-            {step === 3 && '3. التفاصيل وإكمال الطلب'}
-            {step === 4 && 'تم استلام طلبك'}
+            {step === 1 && '1. اختر الصور المطلوبة'}
+            {step === 2 && '2. التفاصيل وإكمال الطلب'}
+            {step === 3 && 'تم استلام طلبك'}
           </h2>
-          {step !== 4 && (
+          {step !== 3 && (
             <button onClick={onClose} className="text-white/60 hover:text-white p-1">
               <X className="w-6 h-6" />
             </button>
@@ -121,43 +119,8 @@ export default function OrderModal({ product, location: initialLocation, onClose
 
         <div className="p-4 md:p-6">
 
-          {/* الخطوة 1: اختيار الولاية */}
+          {/* الخطوة 1: اختيار الصور المحددة */}
           {step === 1 && (
-            <div className="space-y-4">
-              <p className="text-sm text-white/80 font-medium">اختر الولاية لتحديد سعر التوصيل:</p>
-              
-              <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-1">
-                {LOCATIONS.map((loc) => (
-                  <button
-                    key={loc.name}
-                    type="button"
-                    onClick={() => setSelectedState(loc.name)}
-                    className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
-                      selectedState === loc.name
-                        ? 'bg-gold/20 border-gold text-gold font-bold'
-                        : 'bg-black/30 border-gold/20 text-white hover:border-gold/50'
-                    }`}
-                  >
-                    <span>📍 {loc.name}</span>
-                    <span className="text-xs bg-black/50 px-2 py-1 rounded-lg text-gold font-bold">
-                      التوصيل: {Number(loc.deliveryFee).toLocaleString()} ج.س
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="w-full bg-gold text-black font-bold py-3.5 rounded-xl hover:bg-gold-light mt-4"
-              >
-                متابعة واختيار الصور
-              </button>
-            </div>
-          )}
-
-          {/* الخطوة 2: اختيار الصور المحددة */}
-          {step === 2 && (
             <div className="space-y-4">
               <p className="text-sm text-white/80 font-medium">اضغط على الصور التي تريد طلبها:</p>
 
@@ -187,27 +150,18 @@ export default function OrderModal({ product, location: initialLocation, onClose
                 )}
               </div>
 
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="flex-1 border border-gold/40 text-gold py-3 rounded-xl font-medium"
-                >
-                  رجوع
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStep(3)}
-                  className="flex-2 bg-gold text-black font-bold py-3 px-6 rounded-xl hover:bg-gold-light"
-                >
-                  تأكيد الصور والمتابعة
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setStep(2)}
+                className="w-full bg-gold text-black font-bold py-3.5 rounded-xl hover:bg-gold-light mt-2"
+              >
+                تأكيد الصور والمتابعة
+              </button>
             </div>
           )}
 
-          {/* الخطوة 3: تحديد اللون والتفاصيل وإرسال الطلب */}
-          {step === 3 && (
+          {/* الخطوة 2: تحديد اللون والتفاصيل وإرسال الطلب */}
+          {step === 2 && (
             <div className="space-y-4">
               
               {/* اختيار اللون والمقاس والكمية */}
@@ -323,7 +277,7 @@ export default function OrderModal({ product, location: initialLocation, onClose
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setStep(2)}
+                  onClick={() => setStep(1)}
                   className="flex-1 border border-gold/40 text-gold py-3 rounded-xl font-medium"
                 >
                   رجوع
@@ -340,8 +294,8 @@ export default function OrderModal({ product, location: initialLocation, onClose
             </div>
           )}
 
-          {/* الخطوة 4: النجاح */}
-          {step === 4 && (
+          {/* الخطوة 3: النجاح */}
+          {step === 3 && (
             <div className="text-center py-6 space-y-4">
               <CheckCircle className="w-16 h-16 text-green-400 mx-auto animate-bounce" />
               <h3 className="text-xl font-bold text-white">تم إرسال طلبك بنجاح! ❤️</h3>
