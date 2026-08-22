@@ -84,7 +84,7 @@ export default function Orders() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-gold">الطلبات</h1>
+        <h1 className="text-2xl font-bold text-gold">الطلبات ({orders.length})</h1>
         {orders.length > 0 && (
           <button
             onClick={handleClearAll}
@@ -107,6 +107,7 @@ export default function Orders() {
               order.status === 'جديد' ? 'border-red-500/50' : 'border-gold/20'
             }`}
           >
+            {/* الجزء العلوي: حالة الطلب والتاريخ */}
             <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
               <div className="flex items-center gap-2">
                 {order.status === 'جديد' && (
@@ -119,39 +120,69 @@ export default function Orders() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm mb-4">
+            {/* عرض شبكة الصور التي اختارها الزبون */}
+            <div className="my-3">
+              <p className="text-xs text-white/50 mb-2 font-medium">الصور المطلوبة:</p>
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {Array.isArray(order.selected_images) && order.selected_images.length > 0 ? (
+                  order.selected_images.map((imgUrl, idx) => (
+                    <img 
+                      key={idx} 
+                      src={imgUrl} 
+                      alt="صورة الطلب" 
+                      className="w-20 h-20 object-cover rounded-xl border-2 border-gold/40 shadow-md flex-shrink-0"
+                    />
+                  ))
+                ) : order.product_images ? (
+                  <img 
+                    src={Array.isArray(order.product_images) ? order.product_images[0] : order.product_images} 
+                    alt="المنتج" 
+                    className="w-20 h-20 object-cover rounded-xl border border-white/20 flex-shrink-0"
+                  />
+                ) : (
+                  <span className="text-xs text-white/40 italic">لا توجد صور مرفقة</span>
+                )}
+              </div>
+            </div>
+
+            {/* تفاصيل العميل والطلب */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm mb-4 bg-black/30 p-3 rounded-xl border border-white/5">
               <p><span className="text-white/50">الاسم:</span> {order.customer_name}</p>
-              <p><span className="text-white/50">المنطقة:</span> {order.location}</p>
-              <p><span className="text-white/50">المنتج:</span> {order.product_name_snapshot}</p>
-              <p><span className="text-white/50">المقاس:</span> {order.size}</p>
-              <p><span className="text-white/50">الكمية:</span> {order.quantity}</p>
-              <p><span className="text-white/50">السعر:</span> {Number(order.unit_price).toLocaleString()} ج.س</p>
+              <p><span className="text-white/50">📍 الولاية:</span> <span className="text-gold font-bold">{order.state || order.location || 'غير محدد'}</span></p>
+              <p><span className="text-white/50">🎨 اللون:</span> <span className="text-gold font-bold">{order.color || 'غير محدد'}</span></p>
+              <p><span className="text-white/50">المقاس:</span> {order.size || 'غير محدد'}</p>
               <p className="sm:col-span-2">
                 <span className="text-white/50">الإجمالي:</span>{' '}
-                <span className="text-gold font-bold">{Number(order.total_price).toLocaleString()} ج.س</span>
+                <span className="text-gold font-bold text-base">{Number(order.total_price || 0).toLocaleString()} ج.س</span>
               </p>
               <p className="sm:col-span-2">
-                <span className="text-white/50">العنوان:</span> {order.address}
+                <span className="text-white/50">العنوان:</span> {order.address || 'غير محدد'}
               </p>
             </div>
 
+            {/* أزرار الاتصال والواتساب */}
             <div className="flex flex-wrap gap-2 mb-4">
-              <a
-                href={`tel:${order.phone}`}
-                className="inline-flex items-center gap-1.5 bg-green-600/20 text-green-400 border border-green-600/40 px-3 py-1.5 rounded-lg text-sm"
-              >
-                <Phone className="w-4 h-4" /> اتصال
-              </a>
-              <a
-                href={`https://wa.me/${order.whatsapp.replace(/[^0-9]/g, '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 bg-emerald-600/20 text-emerald-400 border border-emerald-600/40 px-3 py-1.5 rounded-lg text-sm"
-              >
-                <MessageCircle className="w-4 h-4" /> واتساب
-              </a>
+              {order.phone && (
+                <a
+                  href={`tel:${order.phone}`}
+                  className="inline-flex items-center gap-1.5 bg-green-600/20 text-green-400 border border-green-600/40 px-3 py-1.5 rounded-lg text-sm"
+                >
+                  <Phone className="w-4 h-4" /> اتصال
+                </a>
+              )}
+              {(order.whatsapp || order.phone) && (
+                <a
+                  href={`https://wa.me/${(order.whatsapp || order.phone).replace(/[^0-9]/g, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 bg-emerald-600/20 text-emerald-400 border border-emerald-600/40 px-3 py-1.5 rounded-lg text-sm"
+                >
+                  <MessageCircle className="w-4 h-4" /> واتساب
+                </a>
+              )}
             </div>
 
+            {/* تغيير الحالة والحذف */}
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gold/10">
               <div className="flex items-center gap-2">
                 <span className="text-white/50 text-sm">الحالة:</span>
