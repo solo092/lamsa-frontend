@@ -68,7 +68,7 @@ export default function Products() {
             className="flex items-center gap-1.5 bg-black text-gold font-bold px-4 py-2 rounded-xl text-sm hover:bg-black/80"
           >
             <ShoppingBag className="w-4 h-4" />
-            اطلب هسع
+      اطلب الان 
           </button>
         </div>
       )}
@@ -86,7 +86,7 @@ export default function Products() {
           مرحبتين حبابك الف في {decodedLocation} ❤️
         </h1>
         <p className="text-center text-white/50 text-sm mb-8">
-          اضغط على أي صورة عجبتك (تقدر تختار أكتر من صورة)، وبعدين دوس "اطلب هسع" فوق
+          اضغط على أي صورة عجبتك (تقدر تختار أكتر من صورة)، وبعدين دوس "اطلب الان" فوق
         </p>
 
         {loading && (
