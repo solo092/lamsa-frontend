@@ -51,13 +51,18 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
     return true;
   };
 
-  const submitOrder = async () => {
+ const submitOrder = async () => {
     if (!validateForm()) return;
 
     setLoading(true);
     setError('');
     try {
+      const rawId = items[0]?.product?.id || items[0]?.product?._id;
+      const parsedId = parseInt(rawId, 10);
+      const productId = !isNaN(parsedId) && parsedId > 0 ? parsedId : 1;
+
       const res = await api.post('/orders', {
+        product_id: productId,
         customer_name: form.customer_name,
         phone: form.phone,
         whatsapp: form.whatsapp,
@@ -71,6 +76,21 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
         delivery_fee: deliveryFee,
         total_price: grandTotal,
       });
+
+      if (res.data.success) {
+        setStep(2);
+        onSuccess?.();
+      } else {
+        setError(res.data.message || 'حصلت مشكلة في إرسال الطلب، حاول تاني.');
+      }
+    } catch (err) {
+      setError(
+        err.response?.data?.message || 'حصلت مشكلة في إرسال الطلب، حاول تاني.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
       if (res.data.success) {
         setStep(2);
