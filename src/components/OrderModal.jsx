@@ -1,33 +1,53 @@
 import { useState } from 'react';
-import { X, CheckCircle, Minus, Plus } from 'lucide-react';
-import api, { SIZES } from '../utils/api';
+import { X, CheckCircle, Minus, Plus, Check } from 'lucide-react';
+import api, { SIZES, LOCATIONS } from '../utils/api';
 
-export default function OrderModal({ product, location, onClose }) {
-  const [step, setStep] = useState(1); // 1=form, 2=summary, 3=success
-  const [quantity, setQuantity] = useState(1);
+export default function OrderModal({ product, location: initialLocation, onClose }) {
+  const [step, setStep] = useState(1); // 1=State, 2=Images, 3=Form, 4=Success
+  
+  // States
+  const [selectedState, setSelectedState] = useState(initialLocation || 'الخرطوم');
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [color, setColor] = useState('');
   const [size, setSize] = useState('L');
+  const [quantity, setQuantity] = useState(1);
+  
   const [form, setForm] = useState({
     customer_name: '',
     phone: '',
     whatsapp: '',
     address: '',
   });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [orderResult, setOrderResult] = useState(null);
 
-  const maxQty = Math.min(product.quantity, 10);
+  // 1. حساب أسعار التوصيل بناء على الولاية المحددة
+  const activeLocation = LOCATIONS.find((loc) => loc.name === selectedState) || LOCATIONS[0];
+  const deliveryFee = Number(activeLocation?.deliveryFee || product?.delivery_fee || 0);
+
+  // 2. صور المنتج المتاحة
+  const productImages = product.image_urls || (product.image_url ? [product.image_url] : []);
+
+  // 3. حساب الإجمالي
   const unitPrice = Number(product.price);
-  const deliveryFee = Number(product.delivery_fee || 0);
   const itemsTotal = unitPrice * quantity;
   const grandTotal = itemsTotal + deliveryFee;
+
+  const toggleImageSelection = (imgUrl) => {
+    if (selectedImages.includes(imgUrl)) {
+      setSelectedImages(selectedImages.filter((url) => url !== imgUrl));
+    } else {
+      setSelectedImages([...selectedImages, imgUrl]);
+    }
+  };
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     setError('');
   };
 
-  const validate = () => {
+  const validateForm = () => {
     if (!form.customer_name.trim() || form.customer_name.trim().length < 2) {
       setError('أكتب اسمك صح');
       return false;
@@ -47,26 +67,27 @@ export default function OrderModal({ product, location, onClose }) {
     return true;
   };
 
-  const goToSummary = () => {
-    if (validate()) setStep(2);
-  };
-
   const submitOrder = async () => {
+    if (!validateForm()) return;
+
     setLoading(true);
     setError('');
     try {
       const res = await api.post('/orders', {
         ...form,
         product_id: product.id,
+        state: selectedState,
+        location: selectedState,
+        selected_images: selectedImages.length > 0 ? selectedImages : productImages,
+        color: color || 'حسب الصورة المختارة',
         size,
         quantity,
-        location,
         delivery_fee: deliveryFee,
         total_price: grandTotal,
       });
+
       if (res.data.success) {
-        setOrderResult(res.data.order);
-        setStep(3);
+        setStep(4);
       } else {
         setError(res.data.message || 'حصلت مشكلة في إرسال الطلب، حاول تاني.');
       }
@@ -79,19 +100,19 @@ export default function OrderModal({ product, location, onClose }) {
     }
   };
 
-  const image = product.image_urls?.[0] || '/logo.png';
-
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 p-0 sm:p-4">
       <div className="bg-card w-full max-w-lg max-h-[95vh] overflow-y-auto rounded-t-3xl sm:rounded-2xl border border-gold/30 shadow-2xl animate-fade-in">
+        
         {/* Header */}
-        <div className="sticky top-0 bg-card border-b border-gold/20 px-4 py-3 flex items-center justify-between">
+        <div className="sticky top-0 bg-card border-b border-gold/20 px-4 py-3 flex items-center justify-between z-10">
           <h2 className="text-lg font-bold text-gold">
-            {step === 1 && 'أكتب بياناتك'}
-            {step === 2 && 'ملخص الطلب'}
-            {step === 3 && 'تم استلام طلبك'}
+            {step === 1 && '1. اختر الولاية'}
+            {step === 2 && '2. اختر الصور المطلوبة'}
+            {step === 3 && '3. التفاصيل وإكمال الطلب'}
+            {step === 4 && 'تم استلام طلبك'}
           </h2>
-          {step !== 3 && (
+          {step !== 4 && (
             <button onClick={onClose} className="text-white/60 hover:text-white p-1">
               <X className="w-6 h-6" />
             </button>
@@ -99,190 +120,235 @@ export default function OrderModal({ product, location, onClose }) {
         </div>
 
         <div className="p-4 md:p-6">
-          {/* Product info always visible on step 1-2 */}
-          {step < 3 && (
-            <div className="flex gap-3 mb-5 bg-black/40 rounded-xl p-3">
-              <img src={image} alt="" className="w-20 h-20 rounded-lg object-cover" />
-              <div>
-                <p className="font-bold text-white">{product.name}</p>
-                <p className="text-gold font-bold">{unitPrice.toLocaleString()} ج.س</p>
-                <p className="text-white/50 text-sm">متوفر: {product.quantity}</p>
-              </div>
-            </div>
-          )}
 
-          {/* STEP 1: Form */}
+          {/* الخطوة 1: اختيار الولاية */}
           {step === 1 && (
             <div className="space-y-4">
-              {/* Quantity */}
-              <div>
-                <label className="block text-sm text-white/70 mb-1">الكمية</label>
-                <div className="flex items-center gap-3">
+              <p className="text-sm text-white/80 font-medium">اختر الولاية لتحديد سعر التوصيل:</p>
+              
+              <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-1">
+                {LOCATIONS.map((loc) => (
                   <button
+                    key={loc.name}
                     type="button"
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    className="w-10 h-10 rounded-full bg-gold/20 text-gold flex items-center justify-center"
+                    onClick={() => setSelectedState(loc.name)}
+                    className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                      selectedState === loc.name
+                        ? 'bg-gold/20 border-gold text-gold font-bold'
+                        : 'bg-black/30 border-gold/20 text-white hover:border-gold/50'
+                    }`}
                   >
-                    <Minus className="w-4 h-4" />
+                    <span>📍 {loc.name}</span>
+                    <span className="text-xs bg-black/50 px-2 py-1 rounded-lg text-gold font-bold">
+                      التوصيل: {Number(loc.deliveryFee).toLocaleString()} ج.س
+                    </span>
                   </button>
-                  <span className="text-xl font-bold w-8 text-center">{quantity}</span>
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
-                    className="w-10 h-10 rounded-full bg-gold/20 text-gold flex items-center justify-center"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
+                ))}
               </div>
-
-              {/* Size */}
-              <div>
-                <label className="block text-sm text-white/70 mb-2">المقاس</label>
-                <div className="flex flex-wrap gap-2">
-                  {SIZES.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setSize(s)}
-                      className={`px-4 py-2 rounded-xl border font-medium ${
-                        size === s
-                          ? 'bg-gold text-black border-gold'
-                          : 'border-gold/40 text-white hover:border-gold'
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Fields */}
-              <div>
-                <label className="block text-sm text-white/70 mb-1">الاسم</label>
-                <input
-                  name="customer_name"
-                  value={form.customer_name}
-                  onChange={handleChange}
-                  placeholder="أكتب اسمك"
-                  className="w-full bg-black/50 border border-gold/30 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-gold"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-white/70 mb-1">رقم المكالمات</label>
-                <input
-                  name="phone"
-                  value={form.phone}
-                  onChange={handleChange}
-                  placeholder="أكتب رقم تلفونك"
-                  type="tel"
-                  className="w-full bg-black/50 border border-gold/30 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-gold"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-white/70 mb-1">رقم الواتساب</label>
-                <input
-                  name="whatsapp"
-                  value={form.whatsapp}
-                  onChange={handleChange}
-                  placeholder="أكتب رقم الواتساب"
-                  type="tel"
-                  className="w-full bg-black/50 border border-gold/30 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-gold"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-white/70 mb-1">السكن / العنوان</label>
-                <textarea
-                  name="address"
-                  value={form.address}
-                  onChange={handleChange}
-                  placeholder="أكتب مكان السكن أو العنوان بالتفصيل"
-                  rows={3}
-                  className="w-full bg-black/50 border border-gold/30 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-gold resize-none"
-                />
-              </div>
-
-              {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 
               <button
-                onClick={goToSummary}
-                className="w-full bg-gold text-black font-bold py-3.5 rounded-xl hover:bg-gold-light active:scale-[0.98]"
+                type="button"
+                onClick={() => setStep(2)}
+                className="w-full bg-gold text-black font-bold py-3.5 rounded-xl hover:bg-gold-light mt-4"
               >
-                متابعة
+                متابعة واختيار الصور
               </button>
             </div>
           )}
 
-          {/* STEP 2: Summary */}
+          {/* الخطوة 2: اختيار الصور المحددة */}
           {step === 2 && (
-            <div className="space-y-3">
-              <div className="bg-black/40 rounded-xl p-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-white/60">الولاية</span>
-                  <span className="font-medium">{location}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/60">العرض</span>
-                  <span className="font-medium">{product.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/60">المقاس</span>
-                  <span className="font-medium">{size}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/60">الكمية</span>
-                  <span className="font-medium">{quantity}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/60">السعر</span>
-                  <span className="font-medium">{itemsTotal.toLocaleString()} ج.س</span>
-                </div>
-                <div className="flex justify-between text-gold/90">
-                  <span className="text-white/60">سعر التوصيل</span>
-                  <span className="font-medium">{deliveryFee.toLocaleString()} ج.س</span>
-                </div>
-                <div className="border-t border-gold/20 pt-2 flex justify-between text-base">
-                  <span className="text-gold font-bold">الإجمالي</span>
-                  <span className="text-gold font-bold">{grandTotal.toLocaleString()} جنيه سوداني</span>
-                </div>
+            <div className="space-y-4">
+              <p className="text-sm text-white/80 font-medium">اضغط على الصور التي تريد طلبها:</p>
+
+              <div className="grid grid-cols-3 gap-3 max-h-72 overflow-y-auto p-1">
+                {productImages.length > 0 ? (
+                  productImages.map((imgUrl, idx) => {
+                    const isSelected = selectedImages.includes(imgUrl);
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => toggleImageSelection(imgUrl)}
+                        className={`relative rounded-xl overflow-hidden cursor-pointer border-2 transition-all aspect-square ${
+                          isSelected ? 'border-gold ring-2 ring-gold' : 'border-white/10 opacity-70'
+                        }`}
+                      >
+                        <img src={imgUrl} alt="" className="w-full h-full object-cover" />
+                        {isSelected && (
+                          <div className="absolute top-1 right-1 bg-gold text-black p-1 rounded-full shadow">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="col-span-3 text-center text-white/40 py-6">لا توجد صور متعددة متوفرة لهذا المنتج</p>
+                )}
               </div>
 
-              <div className="bg-black/40 rounded-xl p-4 text-sm space-y-1">
-                <p><span className="text-white/60">الاسم:</span> {form.customer_name}</p>
-                <p><span className="text-white/60">المكالمات:</span> {form.phone}</p>
-                <p><span className="text-white/60">واتساب:</span> {form.whatsapp}</p>
-                <p><span className="text-white/60">العنوان:</span> {form.address}</p>
-              </div>
-
-              {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-
-              <div className="flex gap-3">
+              <div className="flex gap-2 pt-2">
                 <button
+                  type="button"
                   onClick={() => setStep(1)}
                   className="flex-1 border border-gold/40 text-gold py-3 rounded-xl font-medium"
                 >
                   رجوع
                 </button>
                 <button
-                  onClick={submitOrder}
-                  disabled={loading}
-                  className="flex-1 bg-gold text-black font-bold py-3 rounded-xl hover:bg-gold-light disabled:opacity-60"
+                  type="button"
+                  onClick={() => setStep(3)}
+                  className="flex-2 bg-gold text-black font-bold py-3 px-6 rounded-xl hover:bg-gold-light"
                 >
-                  {loading ? 'جاري الإرسال...' : 'تأكيد الطلب'}
+                  تأكيد الصور والمتابعة
                 </button>
               </div>
             </div>
           )}
 
-          {/* STEP 3: Success */}
+          {/* الخطوة 3: تحديد اللون والتفاصيل وإرسال الطلب */}
           {step === 3 && (
+            <div className="space-y-4">
+              
+              {/* اختيار اللون والمقاس والكمية */}
+              <div className="bg-black/40 p-3 rounded-xl border border-white/5 space-y-3">
+                
+                {/* اللون */}
+                <div>
+                  <label className="block text-xs text-white/70 mb-1">اللون المطلوب (اختياري)</label>
+                  <input
+                    type="text"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    placeholder="مثال: أسود، أبيض، أو نفس الصورة"
+                    className="w-full bg-black/60 border border-gold/30 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold"
+                  />
+                </div>
+
+                {/* المقاس */}
+                <div>
+                  <label className="block text-xs text-white/70 mb-1">المقاس</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SIZES.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setSize(s)}
+                        className={`px-3 py-1 rounded-lg border text-xs font-medium ${
+                          size === s ? 'bg-gold text-black border-gold font-bold' : 'border-gold/40 text-white'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* الكمية */}
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs text-white/70">الكمية:</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      className="w-7 h-7 rounded-full bg-gold/20 text-gold flex items-center justify-center"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-base font-bold text-white px-2">{quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.min(product.quantity || 10, q + 1))}
+                      className="w-7 h-7 rounded-full bg-gold/20 text-gold flex items-center justify-center"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* بيانات العميل */}
+              <div className="space-y-2">
+                <input
+                  name="customer_name"
+                  value={form.customer_name}
+                  onChange={handleChange}
+                  placeholder="الاسم بالكامل"
+                  className="w-full bg-black/50 border border-gold/30 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                />
+                <input
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  placeholder="رقم الهاتف (المكالمات)"
+                  type="tel"
+                  className="w-full bg-black/50 border border-gold/30 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                />
+                <input
+                  name="whatsapp"
+                  value={form.whatsapp}
+                  onChange={handleChange}
+                  placeholder="رقم الواتساب"
+                  type="tel"
+                  className="w-full bg-black/50 border border-gold/30 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                />
+                <textarea
+                  name="address"
+                  value={form.address}
+                  onChange={handleChange}
+                  placeholder="العنوان السكني بالتفصيل"
+                  rows={2}
+                  className="w-full bg-black/50 border border-gold/30 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold resize-none"
+                />
+              </div>
+
+              {/* المجموع والسعر */}
+              <div className="bg-black/60 p-3 rounded-xl border border-gold/20 text-sm space-y-1">
+                <div className="flex justify-between text-white/70">
+                  <span>الولاية المختارة:</span>
+                  <span className="text-gold font-bold">{selectedState}</span>
+                </div>
+                <div className="flex justify-between text-white/70">
+                  <span>رسوم التوصيل:</span>
+                  <span>{deliveryFee.toLocaleString()} ج.س</span>
+                </div>
+                <div className="flex justify-between text-base border-t border-white/10 pt-1 font-bold text-gold">
+                  <span>الإجمالي الكلي:</span>
+                  <span>{grandTotal.toLocaleString()} ج.س</span>
+                </div>
+              </div>
+
+              {error && <p className="text-red-400 text-xs text-center">{error}</p>}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  className="flex-1 border border-gold/40 text-gold py-3 rounded-xl font-medium"
+                >
+                  رجوع
+                </button>
+                <button
+                  type="button"
+                  onClick={submitOrder}
+                  disabled={loading}
+                  className="flex-2 bg-gold text-black font-bold py-3 px-6 rounded-xl hover:bg-gold-light disabled:opacity-60"
+                >
+                  {loading ? 'جاري الإرسال...' : 'تأكيد وإرسال الطلب'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* الخطوة 4: النجاح */}
+          {step === 4 && (
             <div className="text-center py-6 space-y-4">
-              <CheckCircle className="w-16 h-16 text-green-400 mx-auto" />
-              <h3 className="text-xl font-bold text-white">تم استلام طلبك بنجاح ❤️</h3>
+              <CheckCircle className="w-16 h-16 text-green-400 mx-auto animate-bounce" />
+              <h3 className="text-xl font-bold text-white">تم إرسال طلبك بنجاح! ❤️</h3>
               <p className="text-gold text-lg font-bold">
                 الإجمالي: {grandTotal.toLocaleString()} جنيه سوداني
               </p>
-              <p className="text-white/70">حنتواصل معاك في أقرب وقت ممكن.</p>
+              <p className="text-white/70 text-sm">حنتواصل معاك عبر الواتساب أو المكالمات لتأكيد التسليم.</p>
               <button
                 onClick={onClose}
                 className="mt-4 w-full bg-gold text-black font-bold py-3.5 rounded-xl"
@@ -291,6 +357,7 @@ export default function OrderModal({ product, location, onClose }) {
               </button>
             </div>
           )}
+
         </div>
       </div>
     </div>
