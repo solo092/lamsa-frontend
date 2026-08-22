@@ -3,7 +3,7 @@ import { X, CheckCircle } from 'lucide-react';
 import api, { SIZES } from '../utils/api';
 
 export default function OrderModal({ items, location: initialLocation, onClose, onSuccess }) {
-  const [step, setStep] = useState(1); // 1=Form, 2=Success
+  const [step, setStep] = useState(1);
 
   const [size, setSize] = useState('L');
   const [form, setForm] = useState({
@@ -20,9 +20,7 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
   const selectedImages = items.map((i) => i.imageUrl);
   const selectedState = items[0]?.product?.location || initialLocation || 'الخرطوم';
 
-  // كل صورة مختارة = قطعة واحدة من سعر منتجها
   const itemsTotal = items.reduce((sum, i) => sum + Number(i.product.price || 0), 0);
-  // سعر توصيل واحد للطلبية كاملة (بناخد أعلى قيمة بين المنتجات المختارة لأنها بتتوصل مع بعض)
   const deliveryFee = items.reduce((max, i) => Math.max(max, Number(i.product.delivery_fee || 0)), 0);
   const grandTotal = itemsTotal + deliveryFee;
 
@@ -51,27 +49,23 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
     return true;
   };
 
- const submitOrder = async () => {
+  const submitOrder = async () => {
     if (!validateForm()) return;
 
     setLoading(true);
     setError('');
     try {
-      const rawId = items[0]?.product?.id || items[0]?.product?._id;
-      const parsedId = parseInt(rawId, 10);
-      const productId = !isNaN(parsedId) && parsedId > 0 ? parsedId : 1;
-
       const res = await api.post('/orders', {
-        product_id: productId,
-        customer_name: form.customer_name,
-        phone: form.phone,
-        whatsapp: form.whatsapp,
-        address: form.address,
+        product_id: 1,
+        customer_name: form.customer_name.trim(),
+        phone: form.phone.trim(),
+        whatsapp: form.whatsapp.trim(),
+        address: form.address.trim(),
         state: selectedState,
         location: selectedState,
         selected_images: selectedImages,
-        color: form.notes || 'غير محدد',
-        size,
+        color: form.notes ? form.notes.trim() : 'غير محدد',
+        size: size,
         quantity: items.length,
         delivery_fee: deliveryFee,
         total_price: grandTotal,
@@ -92,26 +86,10 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
     }
   };
 
-      if (res.data.success) {
-        setStep(2);
-        onSuccess?.();
-      } else {
-        setError(res.data.message || 'حصلت مشكلة في إرسال الطلب، حاول تاني.');
-      }
-    } catch (err) {
-      setError(
-        err.response?.data?.message || 'حصلت مشكلة في إرسال الطلب، حاول تاني.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 p-0 sm:p-4">
       <div className="bg-card w-full max-w-lg max-h-[95vh] overflow-y-auto rounded-t-3xl sm:rounded-2xl border border-gold/30 shadow-2xl animate-fade-in">
 
-        {/* Header */}
         <div className="sticky top-0 bg-card border-b border-gold/20 px-4 py-3 flex items-center justify-between z-10">
           <h2 className="text-lg font-bold text-gold">
             {step === 1 && 'إكمال الطلب'}
@@ -125,12 +103,8 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
         </div>
 
         <div className="p-4 md:p-6">
-
-          {/* الخطوة 1: مراجعة الصور المختارة + البيانات */}
           {step === 1 && (
             <div className="space-y-4">
-
-              {/* الصور المختارة */}
               <div>
                 <p className="text-sm text-white/80 font-medium mb-2">الصور المختارة ({items.length}):</p>
                 <div className="grid grid-cols-4 gap-2">
@@ -142,7 +116,6 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
                 </div>
               </div>
 
-              {/* المقاس */}
               <div>
                 <label className="block text-xs text-white/70 mb-1.5">المقاس</label>
                 <div className="flex flex-wrap gap-1.5">
@@ -161,7 +134,6 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
                 </div>
               </div>
 
-              {/* بيانات العميل */}
               <div className="space-y-2">
                 <input
                   name="customer_name"
@@ -204,7 +176,6 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
                 />
               </div>
 
-              {/* المجموع والسعر */}
               <div className="bg-black/60 p-3 rounded-xl border border-gold/20 text-sm space-y-1">
                 <div className="flex justify-between text-white/70">
                   <span>الولاية:</span>
@@ -237,7 +208,6 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
             </div>
           )}
 
-          {/* الخطوة 2: النجاح */}
           {step === 2 && (
             <div className="text-center py-6 space-y-4">
               <CheckCircle className="w-16 h-16 text-green-400 mx-auto animate-bounce" />
@@ -254,7 +224,6 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
               </button>
             </div>
           )}
-
         </div>
       </div>
     </div>
