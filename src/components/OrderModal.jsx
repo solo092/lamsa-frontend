@@ -57,11 +57,7 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
     setLoading(true);
     setError('');
     try {
-      const productId = items[0]?.product?.id || items[0]?.product?._id;
-
       const res = await api.post('/orders', {
-        product_id: productId,
-        product: productId,
         customer_name: form.customer_name,
         phone: form.phone,
         whatsapp: form.whatsapp,
