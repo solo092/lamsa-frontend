@@ -14,14 +14,19 @@ export default function ProductCard({ product, onOrder }) {
         />
       </div>
       <div className="p-4">
+        {product.location && (
+          <p className="text-gold/80 text-xs font-medium mb-1">
+            ألف حبابك في ولاية {product.location} ❤️
+          </p>
+        )}
+        <span className="text-gold font-bold text-xl block mb-1">
+          {Number(product.price).toLocaleString()} ج.س
+        </span>
         <h3 className="text-lg font-bold text-white mb-1 line-clamp-1">{product.name}</h3>
         {product.description && (
           <p className="text-white/60 text-sm mb-3 line-clamp-2">{product.description}</p>
         )}
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-gold font-bold text-xl">
-            {Number(product.price).toLocaleString()} ج.س
-          </span>
+        <div className="flex items-center justify-end mb-3">
           <span className={`text-sm ${outOfStock ? 'text-red-400' : 'text-white/50'}`}>
             {outOfStock ? 'خلص حالياً' : `متوفر: ${product.quantity}`}
           </span>
