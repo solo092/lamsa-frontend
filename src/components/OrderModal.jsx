@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { X, CheckCircle } from 'lucide-react';
-import api from '../utils/api';
+import api, { SIZES } from '../utils/api';
 
 export default function OrderModal({ items, location: initialLocation, onClose, onSuccess }) {
   const [step, setStep] = useState(1); // 1=Form, 2=Success
 
+  const [size, setSize] = useState('L');
   const [form, setForm] = useState({
     customer_name: '',
     phone: '',
@@ -65,7 +66,7 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
         location: selectedState,
         selected_images: selectedImages,
         color: form.notes || 'غير محدد',
-        size: 'غير محدد',
+        size,
         quantity: items.length,
         delivery_fee: deliveryFee,
         total_price: grandTotal,
@@ -121,17 +122,23 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
                 </div>
               </div>
 
-              {/* ملاحظات (لون/مقاس/تفاصيل إضافية) */}
+              {/* المقاس */}
               <div>
-                <label className="block text-xs text-white/70 mb-1">ملاحظات (اللون، المقاس، أو أي تفاصيل إضافية)</label>
-                <input
-                  type="text"
-                  name="notes"
-                  value={form.notes}
-                  onChange={handleChange}
-                  placeholder="مثال: مقاس L، لون أسود"
-                  className="w-full bg-black/60 border border-gold/30 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold"
-                />
+                <label className="block text-xs text-white/70 mb-1.5">المقاس</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {SIZES.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSize(s)}
+                      className={`px-4 py-1.5 rounded-lg border text-sm font-medium ${
+                        size === s ? 'bg-gold text-black border-gold font-bold' : 'border-gold/40 text-white'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* بيانات العميل */}
@@ -166,6 +173,14 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
                   placeholder="العنوان السكني بالتفصيل"
                   rows={2}
                   className="w-full bg-black/50 border border-gold/30 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold resize-none"
+                />
+                <input
+                  type="text"
+                  name="notes"
+                  value={form.notes}
+                  onChange={handleChange}
+                  placeholder="ملاحظات إضافية (اختياري)"
+                  className="w-full bg-black/50 border border-gold/30 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
                 />
               </div>
 
