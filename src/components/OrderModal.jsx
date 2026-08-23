@@ -16,6 +16,8 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // نحفظ الإجمالي وقت الإرسال الناجح، عشان ما يتأثرش لو items اتغيرت بعدين (مثلاً السلة اتفضّت)
+  const [confirmedTotal, setConfirmedTotal] = useState(0);
 
   const selectedImages = items.map((i) => i.imageUrl);
   const selectedState = items[0]?.product?.location || initialLocation || 'الخرطوم';
@@ -72,6 +74,8 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
       });
 
       if (res.data.success) {
+        // نثبّت الإجمالي قبل ما ننادي onSuccess (اللي ممكن يفضّي السلة ويغيّر items)
+        setConfirmedTotal(grandTotal);
         setStep(2);
         onSuccess?.();
       } else {
@@ -213,7 +217,7 @@ export default function OrderModal({ items, location: initialLocation, onClose, 
               <CheckCircle className="w-16 h-16 text-green-400 mx-auto animate-bounce" />
               <h3 className="text-xl font-bold text-white">تم إرسال طلبك بنجاح! ❤️</h3>
               <p className="text-gold text-lg font-bold">
-                الإجمالي: {grandTotal.toLocaleString()} جنيه سوداني
+                الإجمالي: {confirmedTotal.toLocaleString()} جنيه سوداني
               </p>
               <p className="text-white/70 text-sm">حنتواصل معاك عبر الواتساب أو المكالمات لتأكيد التسليم.</p>
               <button
