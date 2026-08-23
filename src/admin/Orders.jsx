@@ -2,6 +2,17 @@ import { useEffect, useState } from 'react';
 import api, { ORDER_STATUSES } from '../utils/api';
 import { Phone, MessageCircle, Trash2, RotateCcw } from 'lucide-react';
 
+const formatWhatsappNumber = (num) => {
+  if (!num) return '';
+  let digits = num.replace(/[^0-9]/g, '');
+  if (digits.startsWith('0')) {
+    digits = '249' + digits.slice(1);
+  } else if (!digits.startsWith('249')) {
+    digits = '249' + digits;
+  }
+  return digits;
+};
+
 export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -149,7 +160,7 @@ export default function Orders() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm mb-4 bg-black/30 p-3 rounded-xl border border-white/5">
               <p><span className="text-white/50">الاسم:</span> {order.customer_name}</p>
               <p><span className="text-white/50">📍 الولاية:</span> <span className="text-gold font-bold">{order.state || order.location || 'غير محدد'}</span></p>
-              <p><span className="text-white/50"> الملاحظات:</span> <span className="text-gold font-bold">{order.color || 'غير محدد'}</span></p>
+              <p><span className="text-white/50">📝 ملاحظات:</span> <span className="text-gold font-bold">{order.color || 'غير محدد'}</span></p>
               <p><span className="text-white/50">المقاس:</span> {order.size || 'غير محدد'}</p>
               <p className="sm:col-span-2">
                 <span className="text-white/50">الإجمالي:</span>{' '}
@@ -172,7 +183,7 @@ export default function Orders() {
               )}
               {(order.whatsapp || order.phone) && (
                 <a
-                  href={`https://wa.me/${(order.whatsapp || order.phone).replace(/[^0-9]/g, '')}`}
+                  href={`https://wa.me/${formatWhatsappNumber(order.whatsapp || order.phone)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 bg-emerald-600/20 text-emerald-400 border border-emerald-600/40 px-3 py-1.5 rounded-lg text-sm"
