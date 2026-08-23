@@ -149,7 +149,7 @@ export default function Orders() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm mb-4 bg-black/30 p-3 rounded-xl border border-white/5">
               <p><span className="text-white/50">الاسم:</span> {order.customer_name}</p>
               <p><span className="text-white/50">📍 الولاية:</span> <span className="text-gold font-bold">{order.state || order.location || 'غير محدد'}</span></p>
-              <p><span className="text-white/50">🎨 الملاحظات:</span> <span className="text-gold font-bold">{order.color || 'غير محدد'}</span></p>
+              <p><span className="text-white/50"> الملاحظات:</span> <span className="text-gold font-bold">{order.color || 'غير محدد'}</span></p>
               <p><span className="text-white/50">المقاس:</span> {order.size || 'غير محدد'}</p>
               <p className="sm:col-span-2">
                 <span className="text-white/50">الإجمالي:</span>{' '}
