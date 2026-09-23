@@ -1,10 +1,12 @@
-import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.jsx'
 
 createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+  <div style={{
+    display: 'flex', height: '100vh',
+    alignItems: 'center', justifyContent: 'center',
+    textAlign: 'center',
+    fontFamily: 'sans-serif'
+  }}>
+    <h1>This page is unavailable</h1>
+  </div>
 )
